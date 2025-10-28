@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strategic Campaign Matrix - Interactive Visualization</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary-gradient-start: #0F172A;
+            --primary-gradient-end: #1E293B;
+            --accent-gold: #FCD34D;
+            --accent-blue: #3B82F6;
+            --accent-purple: #8B5CF6;
+            --text-primary: #F8FAFC;
+            --text-secondary: #CBD5E1;
+            --surface-dark: rgba(15, 23, 42, 0.8);
+            --surface-light: rgba(248, 250, 252, 0.05);
+            --border-subtle: rgba(148, 163, 184, 0.1);
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: linear-gradient(135deg, var(--primary-gradient-start) 0%, var(--primary-gradient-end) 100%);
+            min-height: 100vh;
+            color: var(--text-primary);
+            overflow-x: hidden;
+            position: relative;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 40% 20%, rgba(252, 211, 77, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        .container {
+            position: relative;
+            z-index: 2;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 40px;
+            display: grid;
+            grid-template-columns: 1fr 500px;
+            gap: 60px;
+            align-items: start;
+        }
+        
+        .header {
+            grid-column: 1 / -1;
+            text-align: center;
+            animation: fadeIn 0.8s ease-out;
+        }
+        
+        .header h1 {
+            font-size: 3.5rem;
+            font-weight: 200;
+            letter-spacing: -0.02em;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .header p {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            font-weight: 300;
+        }
+        
+        .visualization-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            animation: fadeIn 1s ease-out 0.2s both;
+        }
+        
+        .canvas-wrapper {
+            position: relative;
+            width: 750px;
+            height: 750px;
+            filter: drop-shadow(0 25px 50px rgba(0, 0, 0, 0.5));
+        }
+        
+        #canvas {
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        #canvas:hover {
+            transform: scale(1.02);
+        }
+        
+        .center-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        .center-label h2 {
+            font-size: 1rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        
+        .center-label .dynamic {
+            font-size: 1.25rem;
+            font-weight: 300;
+            color: var(--accent-gold);
+            min-height: 28px;
+            transition: all 0.3s ease;
+        }
+        
+        .detail-panel {
+            animation: fadeIn 1s ease-out 0.4s both;
+            position: sticky;
+            top: 40px;
+        }
+        
+        .panel-content {
+            background: var(--surface-dark);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-subtle);
+            border-radius: 24px;
+            padding: 40px;
+            min-height: 600px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .panel-content.active {
+            border-color: var(--accent-gold);
+            box-shadow: 
+                0 0 0 1px rgba(252, 211, 77, 0.1),
+                0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+        
+        .welcome-state {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 500px;
+            text-align: center;
+        }
+        
+        .welcome-icon {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 24px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            animation: pulse 3s ease-in-out infinite;
+        }
+        
+        .welcome-state h3 {
+            font-size: 1.75rem;
+            font-weight: 300;
+            margin-bottom: 16px;
+            color: var(--text-primary);
+        }
+        
+        .welcome-state p {
+            font-size: 1.125rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            max-width: 350px;
+        }
+        
+        .segment-detail {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .segment-header {
+            margin-bottom: 32px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        
+        .segment-title {
+            font-size: 2rem;
+            font-weight: 200;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, var(--text-primary), var(--accent-gold));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .segment-subtitle {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        
+        .theme-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+            color: white;
+            padding: 8px 20px;
+            border-radius: 100px;
+            font-weight: 500;
+            margin-top: 16px;
+            font-size: 1.125rem;
+        }
+        
+        .detail-section {
+            margin-bottom: 32px;
+        }
+        
+        .detail-section h4 {
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--accent-gold);
+            margin-bottom: 12px;
+        }
+        
+        .detail-section p {
+            font-size: 1.125rem;
+            line-height: 1.7;
+            color: var(--text-secondary);
+        }
+        
+        .headline-example {
+            background: var(--surface-light);
+            border-left: 3px solid var(--accent-gold);
+            padding: 20px 24px;
+            border-radius: 12px;
+            font-size: 1.25rem;
+            font-style: italic;
+            color: var(--text-primary);
+            margin-top: 12px;
+        }
+        
+        .tactics-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .tactics-list li {
+            padding: 12px 0;
+            padding-left: 32px;
+            position: relative;
+            color: var(--text-secondary);
+            font-size: 1.0625rem;
+            line-height: 1.6;
+        }
+        
+        .tactics-list li:before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 20px;
+            width: 20px;
+            height: 1px;
+            background: var(--accent-gold);
+        }
+        
+        .offer-details {
+            background: var(--surface-light);
+            border-radius: 16px;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 16px;
+            align-items: center;
+        }
+        
+        .offer-details .offer-name {
+            font-weight: 500;
+            color: var(--text-primary);
+            font-size: 1.125rem;
+        }
+        
+        .offer-details .price {
+            font-size: 1.5rem;
+            font-weight: 300;
+            color: var(--accent-gold);
+        }
+        
+        .tooltip {
+            position: fixed;
+            background: var(--surface-dark);
+            color: var(--text-primary);
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-size: 0.9375rem;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border-subtle);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .tooltip.visible {
+            opacity: 1;
+        }
+        
+        .legend {
+            position: absolute;
+            bottom: 40px;
+            left: 40px;
+            background: var(--surface-dark);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 20px;
+            max-width: 250px;
+            animation: fadeIn 1s ease-out 0.6s both;
+        }
+        
+        .legend h4 {
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            font-size: 0.9375rem;
+            color: var(--text-secondary);
+        }
+        
+        .legend-item span:first-child {
+            font-weight: 500;
+            color: var(--accent-gold);
+            margin-right: 8px;
+        }
+        
+        @media (max-width: 1400px) {
+            .container {
+                grid-template-columns: 1fr;
+                max-width: 900px;
+            }
+            
+            .detail-panel {
+                position: static;
+                max-width: 600px;
+                margin: 0 auto;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2.5rem;
+            }
+            
+            .canvas-wrapper {
+                width: 100%;
+                max-width: 500px;
+                height: auto;
+                aspect-ratio: 1;
+            }
+            
+            .legend {
+                position: static;
+                margin-top: 20px;
+                max-width: 100%;
+            }
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--primary-gradient-start);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.5s ease;
+        }
+        
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .loader {
+            width: 60px;
+            height: 60px;
+            border: 2px solid var(--surface-light);
+            border-top-color: var(--accent-gold);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loader"></div>
+    </div>
+    
+    <div class="container">
+        <div class="header">
+            <h1>Strategic Campaign Matrix</h1>
+            <p>Navigate the intersection of market awareness and sophistication</p>
+        </div>
+        
+        <div class="visualization-container">
+            <div class="canvas-wrapper">
+                <canvas id="canvas"></canvas>
+                <div class="center-label">
+                    <h2>Theme Finder</h2>
+                    <div class="dynamic" id="dynamicLabel">Explore segments</div>
+                </div>
+            </div>
+            
+            <div class="legend">
+                <h4>Navigation Guide</h4>
+                <div class="legend-item">
+                    <span>Rings:</span> Sophistication levels
+                </div>
+                <div class="legend-item">
+                    <span>Slices:</span> Awareness stages
+                </div>
+                <div class="legend-item">
+                    <span>Inner:</span> Unsophisticated
+                </div>
+                <div class="legend-item">
+                    <span>Outer:</span> Jaded market
+                </div>
+            </div>
+        </div>
+        
+        <div class="detail-panel">
+            <div class="panel-content" id="panelContent">
+                <div class="welcome-state" id="welcomeState">
+                    <div class="welcome-icon">◈</div>
+                    <h3>Select a Segment</h3>
+                    <p>Click any segment in the matrix to explore detailed campaign strategies tailored to that specific market position.</p>
+                </div>
+                <div class="segment-detail" id="segmentDetail" style="display: none;">
+                    <!-- Content will be dynamically inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="tooltip" id="tooltip"></div>
+    
+    <script>
+        // Initialize canvas and context
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const tooltip = document.getElementById('tooltip');
+        const dynamicLabel = document.getElementById('dynamicLabel');
+        const panelContent = document.getElementById('panelContent');
+        const welcomeState = document.getElementById('welcomeState');
+        const segmentDetail = document.getElementById('segmentDetail');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        
+        // Set canvas resolution
+        const dpr = window.devicePixelRatio || 1;
+        const size = 750;
+        canvas.width = size * dpr;
+        canvas.height = size * dpr;
+        canvas.style.width = size + 'px';
+        canvas.style.height = size + 'px';
+        ctx.scale(dpr, dpr);
+        
+        // Configuration
+        const centerX = size / 2;
+        const centerY = size / 2;
+        const innerRadius = 80;
+        const outerRadius = size / 2 - 40;
+        
+        // Data structures
+        const awarenessStages = [
+            { name: 'Unaware', color: '#1E293B' },
+            { name: 'Problem-Aware', color: '#334155' },
+            { name: 'Solution-Aware', color: '#475569' },
+            { name: 'Product-Aware', color: '#64748B' },
+            { name: 'Most Aware', color: '#94A3B8' }
+        ];
+        
+        const sophisticationLevels = [
+            { name: 'Unsophisticated', description: 'First to market' },
+            { name: 'Enlarged Claims', description: 'Growing competition' },
+            { name: 'New Mechanism', description: 'Mechanism focus' },
+            { name: 'Mechanism Elaboration', description: 'Complex differentiation' },
+            { name: 'Jaded Market', description: 'Market exhaustion' }
+        ];
+        
+        // Campaign data
+        const campaignData = {
+            '0-0': {
+                theme: 'The Awakener',
+                strategy: 'Unite people around simple emotional truths that resonate before they even know they have a problem.',
+                headline: 'You Were Not Born to Diet',
+                offer: 'Free community membership',
+                price: 'Free',
+                tactics: [
+                    'Build community before revealing product',
+                    'Focus on shared values and experiences',
+                    'Create emotional connection through storytelling',
+                    'Establish thought leadership position'
+                ]
+            },
+            '0-1': {
+                theme: 'The Emotional Amplifier',
+                strategy: 'Intensify existing cultural tensions and position your brand as the resolution.',
+                headline: 'The Diet Industry Has Been Lying to You',
+                offer: 'Controversial expose book',
+                price: '$19',
+                tactics: [
+                    'Create controversy to generate discussion',
+                    'Amplify existing frustrations',
+                    'Position against common enemy',
+                    'Build tribal identity'
+                ]
+            },
+            '0-2': {
+                theme: 'The Category Creator',
+                strategy: 'Introduce an entirely new way of thinking about the problem space.',
+                headline: 'Introducing Metabolic Timing',
+                offer: 'Educational podcast series',
+                price: 'Free',
+                tactics: [
+                    'Define new category terms',
+                    'Educate through entertainment',
+                    'Create curiosity gaps',
+                    'Position as inevitable future'
+                ]
+            },
+            '0-3': {
+                theme: 'The Complexity Master',
+                strategy: 'Use sophisticated complexity as a signal of advanced thinking.',
+                headline: 'The Seven-Phase Metabolic Protocol',
+                offer: 'Advanced certification program',
+                price: '$497',
+                tactics: [
+                    'Showcase technical sophistication',
+                    'Create exclusive access tiers',
+                    'Build mystique through complexity',
+                    'Target early adopters'
+                ]
+            },
+            '0-4': {
+                theme: 'The Anti-Marketing Brand',
+                strategy: 'Acknowledge market exhaustion by rejecting traditional marketing entirely.',
+                headline: 'No Promises. No Hype. Just Science.',
+                offer: 'Transparent research access',
+                price: '$97',
+                tactics: [
+                    'Radical transparency',
+                    'Anti-marketing messaging',
+                    'Acknowledge skepticism directly',
+                    'Focus on peer validation'
+                ]
+            },
+            '1-0': {
+                theme: 'The Problem Definer',
+                strategy: 'Be the first to clearly articulate and own the problem space.',
+                headline: 'Why You Cannot Lose Weight',
+                offer: 'Diagnostic assessment tool',
+                price: '$49',
+                tactics: [
+                    'Define problem with clarity',
+                    'Quantify pain points',
+                    'Own problem terminology',
+                    'Create problem awareness content'
+                ]
+            },
+            '1-1': {
+                theme: 'The Crisis Amplifier',
+                strategy: 'Escalate the problem to crisis levels requiring immediate action.',
+                headline: 'Your Metabolism Is Shutting Down',
+                offer: 'Emergency intervention program',
+                price: '$197',
+                tactics: [
+                    'Create urgency through escalation',
+                    'Show compound consequences',
+                    'Add time pressure',
+                    'Position as last chance'
+                ]
+            },
+            '1-2': {
+                theme: 'The Innovator',
+                strategy: 'Let your unique mechanism redefine how people understand their problem.',
+                headline: 'Your Metabolism Is Not Slow—It Is Mistimed',
+                offer: 'Scientific white paper + trial',
+                price: '$97',
+                tactics: [
+                    'Lead with innovation',
+                    'Mechanism defines problem',
+                    'Scientific validation',
+                    'Reframe conventional wisdom'
+                ]
+            },
+            '1-3': {
+                theme: 'The Technical Authority',
+                strategy: 'Demonstrate deep technical understanding that competitors cannot match.',
+                headline: 'The 7-Biomarker Metabolic Assessment',
+                offer: 'Professional diagnostic system',
+                price: '$297',
+                tactics: [
+                    'Deep technical content',
+                    'White papers and research',
+                    'Professional partnerships',
+                    'Certification programs'
+                ]
+            },
+            '1-4': {
+                theme: 'The Empathy Leader',
+                strategy: 'Show genuine understanding of their exhaustion with solutions.',
+                headline: 'We Know You Have Tried Everything',
+                offer: 'Honest consultation',
+                price: '$97',
+                tactics: [
+                    'Acknowledge past failures',
+                    'Honor their journey',
+                    'Promise partnership not product',
+                    'Focus on relationship'
+                ]
+            },
+            '2-0': {
+                theme: 'The Solution Pioneer',
+                strategy: 'Present the simple, obvious solution that somehow nobody else offers.',
+                headline: 'Weight Loss That Works While You Sleep',
+                offer: 'Basic patch system',
+                price: '$97/mo',
+                tactics: [
+                    'Simple proof points',
+                    'Clear before/after',
+                    'Easy entry point',
+                    'Focus on results'
+                ]
+            },
+            '2-1': {
+                theme: 'The Evidence Provider',
+                strategy: 'Overwhelm the market with proof that your solution is superior.',
+                headline: '8,743 People Lost Weight While Sleeping',
+                offer: 'Clinical trial access',
+                price: '$297',
+                tactics: [
+                    'Data-driven messaging',
+                    'Competitive comparisons',
+                    'Social proof at scale',
+                    'Results guarantee'
+                ]
+            },
+            '2-2': {
+                theme: 'The Method Master',
+                strategy: 'Make your unique method the star of the show.',
+                headline: 'The Circadian Weight Loss Breakthrough',
+                offer: 'Method training program',
+                price: '$397',
+                tactics: [
+                    'Method-first messaging',
+                    'Scientific validation',
+                    'Patent and IP focus',
+                    'Create method evangelists'
+                ]
+            },
+            '2-3': {
+                theme: 'The Process Perfecter',
+                strategy: 'Show mastery through process complexity and precision.',
+                headline: 'Triple-Phase Metabolic Optimization',
+                offer: 'Professional protocol',
+                price: '$497',
+                tactics: [
+                    'Process visualization',
+                    'Technical demonstrations',
+                    'Certification programs',
+                    'B2B2C partnerships'
+                ]
+            },
+            '2-4': {
+                theme: 'The Simplicity Champion',
+                strategy: 'Strip away all complexity to deliver pure, simple value.',
+                headline: 'One Patch. No Pills. No Gym. Done.',
+                offer: 'Simplified solution',
+                price: '$197',
+                tactics: [
+                    'Radical simplification',
+                    'Remove all friction',
+                    'One-click solutions',
+                    'Instant gratification'
+                ]
+            },
+            '3-0': {
+                theme: 'The Category Leader',
+                strategy: 'Establish yourself as the definitive leader in a new category.',
+                headline: 'MetaSync: The Smart Patch',
+                offer: 'Category-defining product',
+                price: '$97',
+                tactics: [
+                    'Category leadership positioning',
+                    'Set industry standards',
+                    'First-mover advantage',
+                    'Define best practices'
+                ]
+            },
+            '3-1': {
+                theme: 'The Performance King',
+                strategy: 'Dominate through superior performance metrics.',
+                headline: 'MetaSync Beats Every Diet',
+                offer: 'Performance package',
+                price: '$197',
+                tactics: [
+                    'Head-to-head comparisons',
+                    'Performance metrics focus',
+                    'Competitive conquest',
+                    'Dominate search results'
+                ]
+            },
+            '3-2': {
+                theme: 'The Mechanism Revealer',
+                strategy: 'Make your unique mechanism the key differentiator.',
+                headline: 'Patented Chrono-Release Technology',
+                offer: 'Technology showcase',
+                price: '$397',
+                tactics: [
+                    'Technology demonstrations',
+                    'Patent storytelling',
+                    'Innovation positioning',
+                    'Behind-the-scenes content'
+                ]
+            },
+            '3-3': {
+                theme: 'The Technologist',
+                strategy: 'Win through technical superiority and complexity.',
+                headline: 'AI + Biorhythms + Transdermal = Results',
+                offer: 'Advanced system',
+                price: '$597',
+                tactics: [
+                    'Technical authority content',
+                    'Thought leadership',
+                    'Professional channels',
+                    'Expert endorsements'
+                ]
+            },
+            '3-4': {
+                theme: 'The Honest Broker',
+                strategy: 'Build trust through radical honesty in an exhausted market.',
+                headline: 'MetaSync: For Those Who Get It',
+                offer: 'Insider program',
+                price: '$297',
+                tactics: [
+                    'Customer success focus',
+                    'Community building',
+                    'Relationship marketing',
+                    'Peer-to-peer advocacy'
+                ]
+            },
+            '4-0': {
+                theme: 'The Deal Maker',
+                strategy: 'Create urgency through limited-time value propositions.',
+                headline: 'MetaSync: 48 Hours at This Price',
+                offer: 'Flash sale',
+                price: '$67',
+                tactics: [
+                    'Flash sales',
+                    'Limited quantity',
+                    'Countdown timers',
+                    'Scarcity messaging'
+                ]
+            },
+            '4-1': {
+                theme: 'The Value Maximizer',
+                strategy: 'Stack so much value that the decision becomes obvious.',
+                headline: 'Complete System - 60% Off Today',
+                offer: 'Everything bundle',
+                price: '$497',
+                tactics: [
+                    'Value stacking',
+                    'Bundle offers',
+                    'Seasonal promotions',
+                    'Bonus inclusions'
+                ]
+            },
+            '4-2': {
+                theme: 'The Innovation Announcer',
+                strategy: 'Generate excitement through new feature or version releases.',
+                headline: 'MetaSync 2.0: Be First',
+                offer: 'Early access program',
+                price: '$197',
+                tactics: [
+                    'Beta access programs',
+                    'Founder pricing',
+                    'Innovation launches',
+                    'Waitlist building'
+                ]
+            },
+            '4-3': {
+                theme: 'The Premium Provider',
+                strategy: 'Position at the premium end with exclusive benefits.',
+                headline: 'MetaSync Forever: Lifetime Access',
+                offer: 'Lifetime membership',
+                price: '$997',
+                tactics: [
+                    'Premium positioning',
+                    'VIP tiers',
+                    'Concierge service',
+                    'Exclusive benefits'
+                ]
+            },
+            '4-4': {
+                theme: 'The Last Resort',
+                strategy: 'Acknowledge their exhaustion while offering one final solution.',
+                headline: 'One Last Try. We Get It.',
+                offer: 'Final chance offer',
+                price: '$97',
+                tactics: [
+                    'Win-back campaigns',
+                    'Cart abandonment',
+                    'Final offers',
+                    'Empathetic messaging'
+                ]
+            }
+        };
+        
+        // Segment tracking
+        let segments = [];
+        let hoveredSegment = null;
+        let selectedSegment = null;
+        let animationFrame = null;
+        let mouseX = 0;
+        let mouseY = 0;
+        
+        // Calculate segments
+        function initializeSegments() {
+            segments = [];
+            const sliceAngle = (Math.PI * 2) / awarenessStages.length;
+            const ringWidth = (outerRadius - innerRadius) / sophisticationLevels.length;
+            
+            for (let a = 0; a < awarenessStages.length; a++) {
+                for (let s = 0; s < sophisticationLevels.length; s++) {
+                    const startAngle = a * sliceAngle - Math.PI / 2;
+                    const endAngle = (a + 1) * sliceAngle - Math.PI / 2;
+                    const innerR = innerRadius + s * ringWidth;
+                    const outerR = innerRadius + (s + 1) * ringWidth;
+                    
+                    segments.push({
+                        awareness: a,
+                        sophistication: s,
+                        startAngle,
+                        endAngle,
+                        innerRadius: innerR,
+                        outerRadius: outerR,
+                        id: `${a}-${s}`,
+                        hover: false,
+                        selected: false
+                    });
+                }
+            }
+        }
+        
+        // Drawing functions
+        function draw() {
+            ctx.clearRect(0, 0, size, size);
+            
+            // Draw segments
+            segments.forEach(segment => {
+                drawSegment(segment);
+            });
+            
+            // Draw labels
+            drawLabels();
+            
+            // Draw center circle
+            drawCenterCircle();
+        }
+        
+        function drawSegment(segment) {
+            const awareness = awarenessStages[segment.awareness];
+            const scale = segment.hover ? 1.05 : 1;
+            const opacity = segment.selected ? 0.9 : segment.hover ? 0.7 : 0.4;
+            
+            ctx.save();
+            
+            // Create path
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, segment.innerRadius * scale, segment.startAngle, segment.endAngle);
+            ctx.arc(centerX, centerY, segment.outerRadius * scale, segment.endAngle, segment.startAngle, true);
+            ctx.closePath();
+            
+            // Create gradient
+            const gradient = ctx.createRadialGradient(centerX, centerY, segment.innerRadius, centerX, centerY, segment.outerRadius);
+            const baseColor = hexToRgb(awareness.color);
+            gradient.addColorStop(0, `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, ${opacity * 0.8})`);
+            gradient.addColorStop(1, `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, ${opacity})`);
+            
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            
+            // Add border
+            ctx.strokeStyle = segment.selected ? '#FCD34D' : 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = segment.selected ? 2 : 1;
+            ctx.stroke();
+            
+            // Add glow effect for selected
+            if (segment.selected) {
+                ctx.shadowColor = '#FCD34D';
+                ctx.shadowBlur = 20;
+                ctx.stroke();
+            }
+            
+            ctx.restore();
+        }
+        
+        function drawCenterCircle() {
+            ctx.save();
+            
+            // Background
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, innerRadius - 5, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+            ctx.fill();
+            
+            // Border
+            ctx.strokeStyle = 'rgba(252, 211, 77, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            
+            ctx.restore();
+        }
+        
+        function drawLabels() {
+            ctx.save();
+            
+            // Awareness labels (outer)
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.font = '14px -apple-system, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            const labelRadius = outerRadius + 25;
+            const sliceAngle = (Math.PI * 2) / awarenessStages.length;
+            
+            awarenessStages.forEach((stage, i) => {
+                const angle = (i + 0.5) * sliceAngle - Math.PI / 2;
+                const x = centerX + Math.cos(angle) * labelRadius;
+                const y = centerY + Math.sin(angle) * labelRadius;
+                
+                ctx.fillText(stage.name.toUpperCase(), x, y);
+            });
+            
+            // Sophistication labels (rings)
+            ctx.font = '11px -apple-system, sans-serif';
+            ctx.fillStyle = 'rgba(252, 211, 77, 0.5)';
+            
+            const ringWidth = (outerRadius - innerRadius) / sophisticationLevels.length;
+            sophisticationLevels.forEach((level, i) => {
+                const radius = innerRadius + (i + 0.5) * ringWidth;
+                const angle = -Math.PI / 2 - 0.3;
+                const x = centerX + Math.cos(angle) * radius;
+                const y = centerY + Math.sin(angle) * radius;
+                
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate(angle + Math.PI / 2);
+                ctx.fillText(level.name.toUpperCase(), 0, 0);
+                ctx.restore();
+            });
+            
+            ctx.restore();
+        }
+        
+        // Interaction functions
+        function getSegmentFromPoint(x, y) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            const canvasX = (x - rect.left) * scaleX / dpr;
+            const canvasY = (y - rect.top) * scaleY / dpr;
+            
+            const dx = canvasX - centerX;
+            const dy = canvasY - centerY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance < innerRadius || distance > outerRadius) {
+                return null;
+            }
+            
+            let angle = Math.atan2(dy, dx) + Math.PI / 2;
+            if (angle < 0) angle += Math.PI * 2;
+            
+            const sliceAngle = (Math.PI * 2) / awarenessStages.length;
+            const awareness = Math.floor(angle / sliceAngle);
+            
+            const ringWidth = (outerRadius - innerRadius) / sophisticationLevels.length;
+            const sophistication = Math.floor((distance - innerRadius) / ringWidth);
+            
+            return segments.find(s => s.awareness === awareness && s.sophistication === sophistication);
+        }
+        
+        function updateSegmentDetail(segment) {
+            const data = campaignData[segment.id];
+            const awareness = awarenessStages[segment.awareness];
+            const sophistication = sophisticationLevels[segment.sophistication];
+            
+            segmentDetail.innerHTML = `
+                <div class="segment-header">
+                    <div class="segment-title">${awareness.name} × ${sophistication.name}</div>
+                    <div class="segment-subtitle">Market Position Analysis</div>
+                    <div class="theme-badge">${data.theme}</div>
+                </div>
+                
+                <div class="detail-section">
+                    <h4>Strategic Approach</h4>
+                    <p>${data.strategy}</p>
+                </div>
+                
+                <div class="detail-section">
+                    <h4>Example Headline</h4>
+                    <div class="headline-example">${data.headline}</div>
+                </div>
+                
+                <div class="detail-section">
+                    <h4>Offer Structure</h4>
+                    <div class="offer-details">
+                        <div class="offer-name">${data.offer}</div>
+                        <div class="price">${data.price}</div>
+                    </div>
+                </div>
+                
+                <div class="detail-section">
+                    <h4>Key Tactics</h4>
+                    <ul class="tactics-list">
+                        ${data.tactics.map(tactic => `<li>${tactic}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+            
+            welcomeState.style.display = 'none';
+            segmentDetail.style.display = 'block';
+            panelContent.classList.add('active');
+        }
+        
+        // Event handlers
+        canvas.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            
+            const segment = getSegmentFromPoint(e.clientX, e.clientY);
+            
+            if (segment !== hoveredSegment) {
+                if (hoveredSegment) hoveredSegment.hover = false;
+                if (segment) {
+                    segment.hover = true;
+                    const awareness = awarenessStages[segment.awareness];
+                    const sophistication = sophisticationLevels[segment.sophistication];
+                    
+                    dynamicLabel.textContent = `${awareness.name} × ${sophistication.name}`;
+                    dynamicLabel.style.color = '#FCD34D';
+                    
+                    tooltip.textContent = campaignData[segment.id].theme;
+                    tooltip.style.left = e.clientX + 15 + 'px';
+                    tooltip.style.top = e.clientY - 30 + 'px';
+                    tooltip.classList.add('visible');
+                } else {
+                    dynamicLabel.textContent = 'Explore segments';
+                    dynamicLabel.style.color = '#CBD5E1';
+                    tooltip.classList.remove('visible');
+                }
+                
+                hoveredSegment = segment;
+                draw();
+            }
+            
+            canvas.style.cursor = segment ? 'pointer' : 'crosshair';
+        });
+        
+        canvas.addEventListener('mouseleave', () => {
+            if (hoveredSegment) {
+                hoveredSegment.hover = false;
+                hoveredSegment = null;
+                draw();
+            }
+            tooltip.classList.remove('visible');
+            dynamicLabel.textContent = 'Explore segments';
+            dynamicLabel.style.color = '#CBD5E1';
+        });
+        
+        canvas.addEventListener('click', (e) => {
+            const segment = getSegmentFromPoint(e.clientX, e.clientY);
+            
+            if (segment) {
+                if (selectedSegment) selectedSegment.selected = false;
+                segment.selected = true;
+                selectedSegment = segment;
+                updateSegmentDetail(segment);
+                draw();
+            }
+        });
+        
+        // Utility functions
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : { r: 255, g: 255, b: 255 };
+        }
+        
+        // Initialize
+        function init() {
+            initializeSegments();
+            draw();
+            
+            // Hide loading overlay
+            setTimeout(() => {
+                loadingOverlay.classList.add('hidden');
+            }, 500);
+        }
+        
+        // Start when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+        
+        // Handle window resize
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                draw();
+            }, 250);
+        });
+    </script>
+</body>
+</html>
